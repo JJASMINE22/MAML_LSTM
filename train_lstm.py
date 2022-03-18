@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 '''
-@Project ：MAML
-@File    ：train_lstm_v2.py
+@Project ：MAML_LSTM
+@File    ：train_lstm.py
 @IDE     ：PyCharm
 @Author  ：XinYi Huang
 '''

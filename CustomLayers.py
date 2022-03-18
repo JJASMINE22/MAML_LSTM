@@ -1,7 +1,7 @@
 # -*- coding: UTF-8 -*-
 '''
-@Project ：CNN_LSTM
-@File    ：train.py
+@Project ：MAML_LSTM
+@File    ：CustomLayers.py
 @IDE     ：PyCharm 
 @Author  ：XinYi Huang
 '''

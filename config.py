@@ -1,6 +1,6 @@
 # -*- coding: UTF-8 -*-
 '''
-@Project ：bridge
+@Project ：MAML_LSTM
 @File    ：config.py
 @IDE     ：PyCharm 
 @Author  ：XinYi Huang
