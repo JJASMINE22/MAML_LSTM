@@ -20,7 +20,7 @@
 1. MAML结构适用于小样本模型训练，为避免过学习，模型不应设计过重
 2. sub_model的参数务必通过手动更新，附着meta_model的梯度，否则meta_model无法使用综合误差反向传递
 3. 添加正则化机制，防止过拟合
-4. 经多次测试，仓库https://github.com/JJASMINE22/MAML中的MAML_LSTM网络在结合Attention的情况下，效果不佳，因此去除该机制。
+4. 经多次测试，仓库https://github.com/JJASMINE22/MAML 中的MAML_LSTM网络在结合Attention的情况下，效果不佳，因此去除该机制。
 5. 数据路径、训练参数自定义设置，均位于config.py
 
 ## 文件下载    
