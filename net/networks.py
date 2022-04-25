@@ -15,11 +15,13 @@ from CustomLayers import MyLSTM
 
 class CreateModel(Model):
     def __init__(self,
-                 tgt_size=cfg.target_size,
+                 tgt_size: int,
+                 seq_len: int,
                  **kwargs):
         super(CreateModel, self).__init__(**kwargs)
         self.lstm1 = MyLSTM(input_size=tgt_size,
                             hidden_size=64,
+                            sequence_len=seq_len,
                             kernel_initializer='random_normal',
                             recurrent_initializer='random_normal',
                             bias_initializer='zeros',
@@ -30,6 +32,7 @@ class CreateModel(Model):
 
         self.lstm2 = MyLSTM(input_size=64,
                             hidden_size=128,
+                            sequence_len=seq_len,
                             kernel_initializer='random_normal',
                             recurrent_initializer='random_normal',
                             bias_initializer='zeros',
@@ -40,6 +43,7 @@ class CreateModel(Model):
 
         self.lstm3 = MyLSTM(input_size=128,
                             hidden_size=256,
+                            sequence_len=seq_len,
                             kernel_initializer='random_normal',
                             recurrent_initializer='random_normal',
                             bias_initializer='zeros',

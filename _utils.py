@@ -20,6 +20,7 @@ class DataGenerator():
                  task_num,
                  query_ratio,
                  support_query_size):
+        assert support_query_size >= 2
         self.txt_path = txt_path
         self.time_seq = time_seq
         self.radian = np.pi / 180
@@ -27,29 +28,28 @@ class DataGenerator():
         self.task_num = task_num
         self.query_ratio = query_ratio
         self.support_query_size = support_query_size
-        self.train_src, self.train_tgt, self.val_src, self.val_tgt = self.split_train_val()
+        self.split_train_val()
 
     def create_task(self):
 
-        main_part_idx = np.arange(len(self.train_src))
-        residue_part_idx = np.random.choice(len(self.train_src),
-                                            self.support_query_size * self.task_num - len(main_part_idx),
-                                            replace=False)
+        main_part_idx = np.arange(np.shape(self.train_src)[0])
+
+        residue_num = self.support_query_size * self.task_num - np.shape(main_part_idx)[0]
+        residue_part_idx = np.random.choice(np.shape(self.train_src)[0], residue_num, replace=False)
+
         tasks_idx = np.concatenate([main_part_idx, residue_part_idx])
 
         return tasks_idx
 
     def split_train_val(self):
 
-        total_data, seq_source, target = self.preprocess()
-        index = np.arange(len(seq_source))
+        _, seq_source, target = self.preprocess()
+        index = np.arange(np.shape(seq_source)[0])
         np.random.shuffle(index)
-        train_src = seq_source[index[:int(self.train_ratio * len(index))]]
-        train_tgt = target[index[:int(self.train_ratio * len(index))]]
-        val_src = seq_source[index[int(self.train_ratio * len(index)):]]
-        val_tgt = target[index[int(self.train_ratio * len(index)):]]
-
-        return train_src, train_tgt, val_src, val_tgt
+        self.train_src = seq_source[index[:int(self.train_ratio * index.__len__())]]
+        self.train_tgt = target[index[:int(self.train_ratio * index.__len__())]]
+        self.val_src = seq_source[index[int(self.train_ratio * index.__len__()):]]
+        self.val_tgt = target[index[int(self.train_ratio * index.__len__()):]]
 
     @staticmethod
     def erase_default_value(x, t):
@@ -78,7 +78,7 @@ class DataGenerator():
         找出索引, 并通过多项式拟合补充
         '''
         df = pd.read_excel(self.txt_path, keep_default_na=False)
-        df = pd.DataFrame(data=df.values[-2000:], columns=df.keys())
+        df = pd.DataFrame(data=df.values, columns=df.keys())
 
         time_stamp = df['时间']
         df = df.drop(columns=['城市', '时间', '天气', '风向', '风级(级)', '日降雨量(mm)', '平均总云量(%)'])
@@ -102,11 +102,11 @@ class DataGenerator():
         # divide the wind speed
         x_speed = np.array(list(map(lambda i:
                                     np.array(df['风速(m/s)'])[i] * np.cos(np.array(df['风向角度(度)'])[i] * self.radian),
-                                    np.arange(len(df)))))
+                                    np.arange(df.__len__()))))
 
         y_speed = np.array(list(map(lambda i:
                                     np.array(df['风速(m/s)'])[i] * np.sin(np.array(df['风向角度(度)'])[i] * self.radian),
-                                    np.arange(len(df)))))
+                                    np.arange(df.__len__()))))
 
         df.insert(loc=4, column='横向风速', value=x_speed)
         df.insert(loc=5, column='纵向风速', value=y_speed)
@@ -114,53 +114,48 @@ class DataGenerator():
 
         # -1~1 normalize
         df = 2 * (df - df.min(axis=0)) / (df.max(axis=0) - df.min(axis=0)) - 1
-        assign_source = np.array([np.array(df)[i:i + self.time_seq] for i in range(len(df) - self.time_seq)])
-        assign_target = np.array([np.array(df)[i + self.time_seq] for i in range(len(df) - self.time_seq)])
+        assign_source = np.array([np.array(df)[i:i + self.time_seq] for i in range(df.__len__() - self.time_seq)])
+        assign_target = np.array([np.array(df)[i + self.time_seq] for i in range(df.__len__() - self.time_seq)])
 
         return np.array(df), assign_source, assign_target
 
     def get_val_len(self):
 
-        base_batch_num = len(self.val_src) // (self.support_query_size // 2)
-        if not len(self.val_src) % (self.support_query_size // 2):
+        base_batch_num = np.shape(self.val_src)[0]//(self.support_query_size//2)
+        if not np.shape(self.val_src)[0] % (self.support_query_size//2):
             return base_batch_num
         else:
             return base_batch_num + 1
 
     def generate(self, training=True):
-
-        while True:
-            if training:
-                if len(self.train_src) < self.support_query_size * self.task_num:
-                    tasks_idx = self.create_task()
-                else:
-                    tasks_idx = np.random.choice(len(self.train_src),
-                                                 self.support_query_size * self.task_num,
-                                                 replace=False)
-                np.random.shuffle(tasks_idx)
-                tasks_idx = np.reshape(tasks_idx, [-1, self.support_query_size])
-                targets = []
-                for task_idx in tasks_idx:
-                    support_sources = self.train_src[task_idx][:int(self.support_query_size*self.query_ratio)]
-                    support_targets = self.train_tgt[task_idx][:int(self.support_query_size*self.query_ratio)]
-                    query_sources = self.train_src[task_idx][int(self.support_query_size*self.query_ratio):]
-                    query_targets = self.train_tgt[task_idx][int(self.support_query_size*self.query_ratio):]
-                    targets.append([support_sources, support_targets, query_sources, query_targets])
-                    # yield [support_sources, support_targets, query_sources, query_targets]
-                annotation_targets = targets.copy()
-                targets.clear()
-                yield annotation_targets
-
+        if training:
+            if np.shape(self.train_src)[0] < self.support_query_size * self.task_num:
+                tasks_idx = self.create_task()
             else:
-                idx = np.arange(len(self.val_src))
+                tasks_idx = np.random.choice(np.shape(self.train_src)[0],
+                                             self.support_query_size * self.task_num,
+                                             replace=False)
+            while True:
+                if training:
+                    np.random.shuffle(tasks_idx)
+                    tasks_idx = np.reshape(tasks_idx, [-1, self.support_query_size])
+                    for task_idx in tasks_idx:
+                        support_sources = self.train_src[task_idx][:int(self.support_query_size * self.query_ratio)]
+                        support_targets = self.train_tgt[task_idx][:int(self.support_query_size * self.query_ratio)]
+                        query_sources = self.train_src[task_idx][int(self.support_query_size * self.query_ratio):]
+                        query_targets = self.train_tgt[task_idx][int(self.support_query_size * self.query_ratio):]
+                        yield support_sources, support_targets, query_sources, query_targets
+        else:
+            while True:
+                idx = np.arange(np.shape(self.val_src)[0])
                 np.random.shuffle(idx)
                 val_src, val_tgt = self.val_src[idx], self.val_tgt[idx]
-                sources, targets = [], []
+                sources, targets = list(), list()
                 for i, (src, tgt) in enumerate(zip(val_src, val_tgt)):
                     sources.append(src)
                     targets.append(tgt)
 
-                    if np.equal(len(sources), self.support_query_size//2) or i == len(val_src)-1:
+                    if np.equal(sources.__len__(), self.support_query_size//2) or i == np.shape(val_src)[0] - 1:
                         annotation_sources, annotation_targets = sources.copy(), targets.copy()
                         sources.clear()
                         targets.clear()

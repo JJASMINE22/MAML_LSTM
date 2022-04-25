@@ -9,7 +9,7 @@
 
 # data_generator
 text_path = '数据文件绝对路径'
-task_num = 20
+task_num = 45
 time_seq = 7
 query_ratio=0.5
 train_ratio = 0.7

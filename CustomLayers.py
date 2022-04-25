@@ -5,19 +5,21 @@
 @IDE     ：PyCharm 
 @Author  ：XinYi Huang
 '''
-from tensorflow.keras.layers import (Add,
-                                     Dense,
-                                     Layer,
-                                     Activation
-                                     )
+from tensorflow.keras.layers import Layer
 from tensorflow.keras import initializers
 from tensorflow.keras import activations
 import tensorflow as tf
 
 class MyLSTM(Layer):
+    """
+    Customed LSTM
+    With the exception of the meta-learning
+    Eager execution can be enabled without triggering cudnn exception
+    """
     def __init__(self,
                  input_size: int,
                  hidden_size: int,
+                 sequence_len: int,
                  kernel_initializer=None,
                  recurrent_initializer=None,
                  bias_initializer=None,
@@ -31,6 +33,7 @@ class MyLSTM(Layer):
                  **kwargs
                  ):
         super(MyLSTM, self).__init__(**kwargs)
+        self.seq_len = sequence_len
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.kernel_initializer = initializers.get(kernel_initializer)
@@ -59,6 +62,7 @@ class MyLSTM(Layer):
     def get_config(self):
         config = super(MyLSTM, self).get_config()
         config.update({
+            'seq_len': self.seq_len,
             'input_size': self.input_size,
             'hidden_size': self.hidden_size,
             'kernel_initializer': self.kernel_initializer,
@@ -95,15 +99,17 @@ class MyLSTM(Layer):
     def call(self, inputs, **kwargs):
 
         if isinstance(inputs, list):
-            assert tf.greater_equal(len(inputs), 2)
-            input = inputs[0]
-            batch_size, seq_len = tf.shape(input)[:-1]
+            assert inputs.__len__() >= 2
+            feats = inputs[0]
+            batch_size = tf.shape(feats)[0]
             h_t = inputs[1]
-            c_t = inputs[2] if len(inputs) > 2 else h_t
+            c_t = inputs[2] if inputs.__len__() > 2 else h_t
         else:
-            input = inputs
-            batch_size, seq_len = tf.shape(input)[:-1]
+            feats = inputs
+            batch_size = tf.shape(feats)[0]
             h_t, c_t = self.init_state(batch_size)
+
+        feats = tf.split(feats, num_or_size_splits=self.seq_len, axis=1)
 
         self.kernel_i, self.kernel_f, self.kernel_c, self.kernel_o = \
             tf.split(self.kernel, num_or_size_splits=4, axis=-1)
@@ -116,24 +122,24 @@ class MyLSTM(Layer):
             self.bias_i, self.bias_f, self.bias_c, self.bias_o = \
                 tf.split(self.bias, num_or_size_splits=4, axis=0)
 
-        out_put = []
-        for i in range(seq_len):
+        out_put = list()
+        for feat in feats:
 
-            f_t = self.multiple_dot_compute(inputs[:, i, :], h_t, self.kernel_f,
+            f_t = self.multiple_dot_compute(feat, h_t, self.kernel_f,
                                             self.recurrent_kernel_f, self.bias_f,
                                             self.recurrent_activation)
 
-            i_t = self.multiple_dot_compute(inputs[:, i, :], h_t, self.kernel_i,
+            i_t = self.multiple_dot_compute(feat, h_t, self.kernel_i,
                                             self.recurrent_kernel_i, self.bias_i,
                                             self.recurrent_activation)
 
-            _c_t = self.multiple_dot_compute(inputs[:, i, :], h_t, self.kernel_c,
+            _c_t = self.multiple_dot_compute(feat, h_t, self.kernel_c,
                                              self.recurrent_kernel_c, self.bias_c,
                                              self.activation)
 
             c_t = f_t * c_t + i_t * _c_t
 
-            o_t = self.multiple_dot_compute(inputs[:, i, :], h_t, self.kernel_o,
+            o_t = self.multiple_dot_compute(feat, h_t, self.kernel_o,
                                             self.recurrent_kernel_o, self.bias_o,
                                             self.recurrent_activation)
 

@@ -15,11 +15,13 @@ class MAML:
 
     """
         MAML - Model-Agnostic Meta-Learning
-        The constructor of this class builds and compiles the model by using customed lstm to implement the inputs with variable timing length
-        as described in the paper, initializing the meta-optimizer and loading the model weights (if checkpoint exists)
+        The constructor of this class implements eager execution on testing by using customed lstm
+        which fixed the timing length of input
+        Eager execution leads to excessive gradient tracking overhead in a multitasking state with meta-learning
     """
     def __init__(self,
                  target_size: int,
+                 sequence_len: int,
                  weight_decay: float,
                  learning_rate: list,
                  **kwargs):
@@ -29,6 +31,7 @@ class MAML:
         """
 
         self.target_size = target_size
+        self.seq_len = sequence_len
         self.weight_decay = weight_decay
 
         self.sub_lr = learning_rate[0]
@@ -42,14 +45,15 @@ class MAML:
         self.query_loss = tf.keras.metrics.Mean()
         self.val_loss = tf.keras.metrics.Mean()
 
-        self.model = CreateModel(tgt_size=self.target_size)
+        self.model = CreateModel(tgt_size=self.target_size,
+                                 seq_len=self.seq_len)
         self.initial_weights = self.model.get_weights()
 
-    # @tf.function
     def forward(self, source, real, model):
         """
         This method executes a forward pass of the model using input x (model prediction).
         It uses the lossFunction to calculate the loss and returns both the loss and the predictions
+        Prohibit the use of @tf.function
         """
         pred = model(source)
         loss = self.loss(real, pred)
@@ -58,7 +62,7 @@ class MAML:
 
         return loss, pred
 
-    def train(self, targets):
+    def train(self, generator, task_num):
         """
         This is the implementation of "Algorithm 2 MAML for Few-Shot Supervised Learning".
         It trains the model and plots the error over time after iterating through all the Tasks in p(T)
@@ -66,15 +70,16 @@ class MAML:
         The numbers denote the step of Algorithm 2 we are currently in.
         """
         with tf.GradientTape() as query_tape:
-            for target in targets:
-                support_src, support_tgt, query_src, query_tgt = target
+            for i in range(task_num):
+                support_src, support_tgt, query_src, query_tgt = next(generator)
                 with tf.GradientTape() as support_tape:
                     support_loss, support_logits = self.forward(support_src, support_tgt, self.model)  # Compute loss of Ti
 
                 # Create temporary model to compute θ` - applying gradients
                 sub_gradients = support_tape.gradient(support_loss, self.model.trainable_variables)
 
-                sub_model = CreateModel(tgt_size=self.target_size)
+                sub_model = CreateModel(tgt_size=self.target_size,
+                                        seq_len=self.seq_len)
                 sub_model.set_weights(self.model.get_weights())
 
                 """
@@ -106,6 +111,7 @@ class MAML:
             self.optimizer.apply_gradients(zip(meta_gradients, self.model.trainable_variables))
             self.total_loss.clear()
 
+    @tf.function
     def test(self, source, target):
         """
         Performs a prediction on new datapoints and evaluates the prediction (loss)

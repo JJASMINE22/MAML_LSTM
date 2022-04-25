@@ -22,6 +22,7 @@ if __name__ == '__main__':
                         support_query_size=cfg.support_query_size)
 
     maml = MAML(target_size=cfg.target_size,
+                sequence_len=cfg.time_seq,
                 weight_decay=cfg.weight_decay,
                 learning_rate=[cfg.sub_lr_rate,
                                cfg.meta_lr_rate])
@@ -34,15 +35,17 @@ if __name__ == '__main__':
 
     ckpt_manager = tf.train.CheckpointManager(ckpt, cfg.ckpt_path, max_to_keep=5)
 
-    # 如果检查点存在，则恢复最新的检查点，加载模型
+    # 如果检查点存在, 则恢复最新的检查点, 加载模型
     if ckpt_manager.latest_checkpoint:
         ckpt.restore(ckpt_manager.latest_checkpoint).expect_partial()
         print('Latest checkpoint restored!!')
 
     train_func = gen.generate(training=True)
     test_func = gen.generate(training=False)
+
     for epoch in range(cfg.epoches):
-        maml.train(next(train_func))
+
+        maml.train(train_func, gen.task_num)
 
         for i in range(gen.get_val_len()):
             source, target = next(test_func)

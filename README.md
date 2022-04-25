@@ -22,6 +22,9 @@
 3. 添加正则化机制，防止过拟合
 4. 经多次测试，仓库https://github.com/JJASMINE22/MAML 中的MAML_LSTM网络在结合Attention的情况下，效果不佳，因此去除该机制。
 5. 数据路径、训练参数自定义设置，均位于config.py
+6. 更新自定义LSTM模块，使其满足渴望执行，不触发cudnn异常
+7. MAML的训练任务繁多，导致梯度追踪开销巨大，训练时禁用渴望执行
+8. 更新数据生成器，使MAML接受更多的训练任务
 
 ## 文件下载    
 链接：https://pan.baidu.com/s/13T1Qs4NZL8NS4yoxCi-Qyw 
